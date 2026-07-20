@@ -1,6 +1,5 @@
 using Diffusing
 using Test
+using Random
 
-@testset "Diffusing.jl" begin
-    # Write your tests here.
-end
+include("process_test.jl")

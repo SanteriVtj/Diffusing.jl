@@ -1,5 +1,7 @@
 module Diffusing
 
-# Write your package code here.
+include("diffusion_process.jl")
+
+export VariancePreservingSDE, VarianceExplodingSDE, drift, diffusion
 
 end
