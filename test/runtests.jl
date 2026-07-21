@@ -1,5 +1,6 @@
 using Diffusing
 using Test
-using Random
+using Random, Lux
 
 include("process_test.jl")
+include("unet_test.jl")

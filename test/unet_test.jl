@@ -9,7 +9,7 @@
 
     model = @test_nowarn UNet(1,1)
     @test model isa UNet
-    @test model isa Lux.AbbstractLuxContainerLayer
+    @test model isa Lux.AbstractLuxContainerLayer
 
     ps, st = @test_nowarn Lux.setup(rng, model)
     @test ps isa NamedTuple
