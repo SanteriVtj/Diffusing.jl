@@ -1,6 +1,6 @@
 # Down and upsampling blocks
 
-struct DownBlock{C,P,T} <: AbstractLuxContainerLayer{(:conv,:pool)}
+struct DownBlock{C,P,T} <: AbstractLuxContainerLayer{(:conv,:pool,:time_embedding)}
     conv::C
     pool::P
     time_embedding::T
@@ -20,12 +20,12 @@ function (d::DownBlock)((x,t_embed), ps, st)
     t_proj, st_t = d.time_embedding(t_embed, ps.time_embedding, st.time_embedding)
     features, st_conv = d.conv(x, ps.conv, st.conv)
     t_reshaped = reshape(t_proj, 1, 1, size(t_proj,1), size(t_proj,2))
-    conditioned_features = features.+t_reshaped
+    features_conditioned = features.+t_reshaped
     downsampled, st_pool = d.pool(features_conditioned, ps.pool, st.pool)
     return (features_conditioned, downsampled), (conv = st_conv, pool=st_pool, time_embedding=st_t)
 end
 
-struct UpBlock{U,C,T} <: Lux.AbstractLuxContainerLayer{(:upsample, :conv)}
+struct UpBlock{U,C,T} <: Lux.AbstractLuxContainerLayer{(:upsample, :conv, :time_embedding)}
     upsample::U
     conv::C
     time_embedding::T
@@ -46,7 +46,7 @@ function (u::UpBlock)((x, skip, t_embed), ps, st)
     x_concat = cat(x_up, skip; dims=3)
     out, st_conv = u.conv(x_concat, ps.conv, st.conv)
 
-    t_proj, st_t = u.time_embedding(t_embed, ps.time_embed, st.time_embed)
+    t_proj, st_t = u.time_embedding(t_embed, ps.time_embedding, st.time_embedding)
     t_reshaped = reshape(t_proj, 1, 1, size(t_proj, 1), size(t_proj, 2))
     out_conditioned = out .+ t_reshaped
     return out_conditioned, (upsample=st_up, conv=st_conv, time_embedding=st_t)
@@ -54,7 +54,7 @@ end
 
 # UNet definition
 
-struct UNet <: Lux.AbstractLuxContainerLayer{(:down1, :down2, :bottleneck, :up2, :up1, :final_conv)}
+struct UNet <: Lux.AbstractLuxContainerLayer{(:gauss_embed, :time_mlp, :down1, :down2, :bottleneck, :up2, :up1, :final_conv)}
     gauss_embed::GaussianFourierProjection
     time_mlp::Chain
     down1::DownBlock
@@ -84,9 +84,9 @@ function UNet(in_channels::Int, out_channels::Int, embed_dim::Int)
                )
 end
 
-function (net::UNet)(x, ps, st)
-    t_gf, st_gf = net.gauss_embed(t, ps.gauss_embedding, st.gauss_embedding)
-    t_emb, st_mlp = net.time_mlp(t_gf, ps.time_mlp, st.time_mlp)
+function (net::UNet)((x,t), ps, st)
+    t_gf, st_gf = net.gauss_embed(t, ps.gauss_embed, st.gauss_embed)
+    t_embed, st_mlp = net.time_mlp(t_gf, ps.time_mlp, st.time_mlp)
 
     (skip1, d1), st_d1 = net.down1((x,t_embed), ps.down1, st.down1)
     (skip2, d2), st_d2 = net.down2((d1,t_embed), ps.down2, st.down2)
@@ -99,7 +99,7 @@ function (net::UNet)(x, ps, st)
     out, st_f = net.final_conv(u1, ps.final_conv, st.final_conv)
 
     new_st = (
-              gauss_embed=st_gf,
+              gauss_embedding=st_gf,
               time_mlp=st_mlp,
               down1=st_d1, 
               down2=st_d2, 

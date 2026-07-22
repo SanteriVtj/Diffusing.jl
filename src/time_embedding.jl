@@ -15,8 +15,9 @@ end
 Lux.initialparameters(::AbstractRNG, ::GaussianFourierProjection) = NamedTuple()
 
 function (l::GaussianFourierProjection)(t, ps, st)
+    t_arr = t isa AbstractArray ? t : [t]
     W = st.W
-    t_row = reshape(t, 1, length(t))
+    t_row = reshape(t_arr, 1, length(t_arr))
 
     proj = (2.0f0*Float32(π)*(W.*t_row))
     emb = cat(sin.(proj), cos.(proj); dims=1)
